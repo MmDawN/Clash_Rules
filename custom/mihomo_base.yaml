@@ -21,6 +21,7 @@ dns:
     - '*.msftncsi.com'
     - 'www.msftconnecttest.com'
     - 'geosite:cn'
+    - 'geosite:microsoft'
     - '*.31201908.xyz'
     - 'byr.pt'
     - '*.qq.com'
