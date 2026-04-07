@@ -1,6 +1,8 @@
 payload:
   - DOMAIN-KEYWORD,31201908
   - DOMAIN-KEYWORD,downloadtorrent
+  - DOMAIN-KEYWORD,elsevier
+  - DOMAIN-KEYWORD,sciencedirect
   - DOMAIN-KEYWORD,webof
   - DOMAIN-KEYWORD,zotero
   - DOMAIN-SUFFIX,byr.pt
