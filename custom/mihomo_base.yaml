@@ -37,6 +37,10 @@ dns:
   nameserver:
     - 'https://doh.pub/dns-query'
     - 'https://dns.alidns.com/dns-query'
+  nameserver-policy:
+    '+.bit.edu.cn':
+      - '10.0.32.33'
+      - '10.0.32.32'
   direct-nameserver-follow-policy: false
   fallback-filter:
     geoip: true
