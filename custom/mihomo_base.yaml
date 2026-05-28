@@ -41,6 +41,8 @@ dns:
     '+.bit.edu.cn':
       - '10.0.32.33'
       - '10.0.32.32'
+      - 'https://doh.pub/dns-query'
+      - 'https://dns.alidns.com/dns-query'
   direct-nameserver-follow-policy: false
   fallback-filter:
     geoip: true
