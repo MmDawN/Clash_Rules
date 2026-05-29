@@ -5,6 +5,7 @@ on:
     paths:
       - 'cfg/**'
       - 'rule/**'
+      - 'custom/**'  # 添加这一行以监控 custom 目录变动
       - 'game_rule/**'
       - 'shell/**'
       - 'overwrite/**'
@@ -18,13 +19,14 @@ on:
       - Auto update mainland config
       - Auto Update Game CDN Rules
       - Sync and Modify Custom_Clash.ini
+      - Sync Upstream and Update Custom Branch
     types:
       - completed
 
   workflow_dispatch:  # 支持手动触发
 
 env:
-  TARGET_BRANCH: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch) || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name) || (vars.WORK_BRANCH != '' && vars.WORK_BRANCH) || 'main' }}
+  TARGET_BRANCH: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch) || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name) || (vars.WORK_BRANCH != '' && vars.WORK_BRANCH) || 'zq_custom' }}
 
 jobs:
   purge-jsdelivr:
@@ -33,7 +35,7 @@ jobs:
       (
         github.event_name != 'workflow_run' &&
         github.actor != 'github-actions[bot]' &&
-        (github.event_name != 'push' || github.ref_name == ((vars.WORK_BRANCH != '' && vars.WORK_BRANCH) || 'main'))
+        (github.event_name != 'push' || github.ref_name == ((vars.WORK_BRANCH != '' && vars.WORK_BRANCH) || 'zq_custom'))
       )
     runs-on: ubuntu-latest
     permissions:
@@ -121,7 +123,8 @@ jobs:
 
           for i in {1..3}; do
             echo "Attempt $i: Purging..."
-            result=$(curl -s -X GET "https://purge.jsdelivr.net/gh/${REPO}")
+            # 明确指定刷新 zq_custom 分支 (或 TARGET_BRANCH)
+            result=$(curl -s -X GET "https://purge.jsdelivr.net/gh/${REPO}@${TARGET_BRANCH}")
             echo "$result"
 
             if echo "$result" | grep -q '"status": "finished"'; then
