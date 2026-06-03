@@ -24,6 +24,7 @@ dns:
     - 'geosite:microsoft'
     - '*.31201908.xyz'
     - 'byr.pt'
+    - '*.tjupt.org'
     - '*.qq.com'
     - '*.qpic.cn'
     - '*.weixinbridge.com'
