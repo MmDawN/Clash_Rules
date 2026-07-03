@@ -23,7 +23,7 @@ dns:
     - 'geosite:cn'
     - 'geosite:microsoft'
     - '*.31201908.xyz'
-    - 'byr.pt'
+    - '*.byr.pt'
     - '*.tjupt.org'
     - '*.qq.com'
     - '*.qpic.cn'
