@@ -1,0 +1,47 @@
+name: Sync Upstream and Update Custom Branch
+
+on:
+  schedule:
+    - cron: '30 0,6,12,18 * * *' # Every 6 hours offset
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync logic
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
+          # Add upstream
+          git remote add upstream https://github.com/Aethersailor/Custom_OpenClash_Rules.git
+
+          # Fetch latest branches
+          git fetch upstream main
+          git fetch origin zq_custom
+
+          # 1. Make main exactly match upstream/main
+          git checkout -B main upstream/main
+          git push origin main --force
+
+          # 2. Rebase zq_custom onto the latest main
+          git checkout -B zq_custom origin/zq_custom
+
+          if ! git rebase main; then
+            echo "Rebase conflict occurred. Manual resolution is required."
+            git rebase --abort
+            exit 1
+          fi
+
+          # Rebase rewrites commit history, so force push is required
+          git push origin zq_custom --force-with-lease

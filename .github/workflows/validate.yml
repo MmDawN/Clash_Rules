@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - zq_custom
     # Source-list pushes are validated after Auto generate rules publishes the
     # matching YAML/MRS commit. Pull requests still validate source and derived
     # files together before merge.
@@ -16,6 +17,7 @@ on:
   pull_request:
     branches:
       - main
+      - zq_custom
   workflow_dispatch:
 
 permissions:
