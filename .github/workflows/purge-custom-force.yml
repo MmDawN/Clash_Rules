@@ -1,0 +1,44 @@
+name: Purge Custom Files After Force Push
+
+on:
+  push:
+    branches:
+      - zq_custom
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jsdelivr-publisher-${{ github.repository }}-main
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    if: github.repository == 'MmDawN/Clash_Rules' && (github.event.forced || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Purge custom files
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PYTHON'
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, ".github/scripts")
+          import jsdelivr_purge as purge
+
+          contract = purge.load_contract(Path(".github/jsdelivr-publish.json"))
+          if contract.repository != os.environ["REPOSITORY"]:
+              raise purge.PublishError("Publication contract does not match this repository")
+          for path in ("cfg/Custom_Clash.ini", "zq_custom/custom_tun_dns.yaml", "zq_custom/custom_ruleset.yaml"):
+              for alias in contract.ref_aliases:
+                  print(purge.purge_target(contract.repository, alias, path), flush=True)
+          PYTHON

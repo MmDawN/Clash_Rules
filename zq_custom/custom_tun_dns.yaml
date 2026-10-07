@@ -1,0 +1,81 @@
+tun:
+  # 以下目标网段绕过 Clash TUN，实际出口由系统路由表决定
+  route-exclude-address:
+    - '0.0.0.0/8'         # IPv4 本网络特殊地址，不是表示所有 IPv4 的 0.0.0.0/0
+    - '10.0.0.0/8'        # IPv4 私网地址，常用于企业、校园及家庭网络
+    - '100.64.0.0/10'     # IPv4 运营商共享地址（CGNAT），Tailscale 节点也使用此网段
+    - '127.0.0.0/8'       # IPv4 回环地址，用于访问本机（如 127.0.0.1）
+    - '169.254.0.0/16'    # IPv4 链路本地地址，常见于 DHCP 获取失败时的自动分配地址
+    - '172.16.0.0/12'     # IPv4 私网地址，范围为 172.16.0.0～172.31.255.255
+    - '192.168.0.0/16'    # IPv4 私网地址，常用于家用路由器及局域网
+    - '224.0.0.0/4'       # IPv4 组播地址，用于设备发现及组播通信
+    - '240.0.0.0/4'       # IPv4 保留地址范围，包含有限广播地址 255.255.255.255
+    - '::/128'            # IPv6 未指定地址，不用于正常远程访问
+    - '::1/128'           # IPv6 回环地址，用于访问本机
+    - '2001:db8::/32'     # IPv6 文档和示例地址，不用于正常公网通信
+    - 'fc00::/7'          # IPv6 唯一本地地址（ULA），用于内部网络
+    - 'fe80::/10'         # IPv6 链路本地地址，用于同一链路内通信及邻居发现
+    - 'ff00::/8'          # IPv6 组播地址，用于设备发现及组播通信
+
+dns:
+  enable: true
+  listen: ':53'
+  enhanced-mode: 'fake-ip'
+  fake-ip-range: '198.18.0.1/16'
+  fake-ip-filter-mode: 'blacklist'
+  prefer-h3: false
+  respect-rules: false
+  use-hosts: false
+  use-system-hosts: false
+  ipv6: true
+  fake-ip-filter:
+    - '*.lan'
+    - '*.local'
+    - '*.arpa'
+    - 'time.*.com'
+    - 'ntp.*.com'
+    - '+.market.xiaomi.com'
+    - 'localhost.ptlogin2.qq.com'
+    - '*.msftncsi.com'
+    - 'www.msftconnecttest.com'
+    - 'geosite:cn'
+    - 'geosite:microsoft'
+    - '+.31201908.xyz'
+    - '+.byr.pt'
+    - '+.tjupt.org'
+    - '*.qq.com'
+    - '*.qpic.cn'
+    - '*.weixinbridge.com'
+    - '*.wechat.com'
+  default-nameserver:
+    - 'system'
+    - '223.6.6.6'
+    - '8.8.8.8'
+    - '2400:3200::1'
+    - '2001:4860:4860::8888'
+  nameserver:
+    - 'https://doh.pub/dns-query'
+    - 'https://dns.alidns.com/dns-query'
+  nameserver-policy:
+    '+.bit.edu.cn':
+      - '10.0.32.33'
+      - '10.0.32.32'
+      - 'https://doh.pub/dns-query'
+      - 'https://dns.alidns.com/dns-query'
+  direct-nameserver-follow-policy: false
+  fallback-filter:
+    geoip: true
+    geoip-code: 'CN'
+    ipcidr:
+      - '240.0.0.0/4'
+      - '0.0.0.0/32'
+    domain:
+      - '+.google.com'
+      - '+.facebook.com'
+      - '+.youtube.com'
+  fallback: []
+  proxy-server-nameserver:
+    - 'https://doh.pub/dns-query'
+    - 'https://dns.alidns.com/dns-query'
+    - 'tls://223.5.5.5'
+  direct-nameserver: []

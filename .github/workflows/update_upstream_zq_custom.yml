@@ -1,0 +1,106 @@
+name: Sync Upstream and Update Custom Branch
+
+on:
+  schedule:
+    - cron: '30 0,6,12,18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: main-writers
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'MmDawN/Clash_Rules'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          ref: zq_custom
+          fetch-depth: 0
+
+      - name: Sync upstream and rebase custom branch
+        id: sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git remote add upstream https://github.com/Aethersailor/Custom_OpenClash_Rules.git
+          git fetch --no-tags upstream main
+          upstream_sha="$(git rev-parse FETCH_HEAD)"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main refs/heads/zq_custom:refs/remotes/origin/zq_custom
+          main_before="$(git rev-parse origin/main)"
+          custom_before="$(git rev-parse origin/zq_custom)"
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+
+          git checkout -B zq_custom "$custom_before"
+          if ! git merge-base --is-ancestor "$upstream_sha" HEAD; then
+            if ! git rebase "$upstream_sha"; then
+              echo "Rebase conflict occurred. Manual resolution is required."
+              git diff --name-only --diff-filter=U
+              git rebase --abort
+              exit 1
+            fi
+          fi
+          custom_after="$(git rev-parse HEAD)"
+          if [ "$main_before" = "$upstream_sha" ] && [ "$custom_before" = "$custom_after" ]; then
+            echo "Already synchronized."
+            exit 0
+          fi
+
+          git push --atomic \
+            --force-with-lease="refs/heads/main:$main_before" \
+            --force-with-lease="refs/heads/zq_custom:$custom_before" \
+            origin "$upstream_sha:refs/heads/main" "$custom_after:refs/heads/zq_custom"
+
+          if [ "$custom_before" != "$custom_after" ]; then
+            {
+              echo "changed=true"
+              echo "before_sha=$custom_before"
+              echo "after_sha=$custom_after"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python for CDN purge
+        if: steps.sync.outputs.changed == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Purge files changed by rebase
+        if: steps.sync.outputs.changed == 'true'
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+          BEFORE_SHA: ${{ steps.sync.outputs.before_sha }}
+          AFTER_SHA: ${{ steps.sync.outputs.after_sha }}
+        run: |
+          git fetch --no-tags origin zq_custom
+          export PUBLISHED_SHA="$(git rev-parse FETCH_HEAD)"
+          python - <<'PYTHON'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, ".github/scripts")
+          import jsdelivr_purge as purge
+
+          contract = purge.load_contract(Path(".github/jsdelivr-publish.json"))
+          if contract.repository != os.environ["REPOSITORY"] or contract.branch != "zq_custom":
+              raise purge.PublishError("Publication contract does not match this repository and branch")
+          before = purge.resolve_commit(os.environ["BEFORE_SHA"])
+          after = purge.resolve_commit(os.environ["AFTER_SHA"])
+          published = purge.resolve_commit(os.environ["PUBLISHED_SHA"])
+          subprocess.run(["git", "merge-base", "--is-ancestor", after, published], check=True)
+          expectations = purge.build_expectations(before, after, contract, "complete", published)
+          purge.print_plan(expectations, before, after, published, "complete")
+          purge.purge_all(expectations, contract)
+          PYTHON
