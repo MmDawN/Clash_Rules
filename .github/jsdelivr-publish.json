@@ -1,9 +1,9 @@
 {
-  "repository": "Aethersailor/Custom_OpenClash_Rules",
-  "branch": "main",
+  "repository": "MmDawN/Clash_Rules",
+  "branch": "zq_custom",
   "ref_aliases": [
-    "main",
-    "refs/heads/main"
+    "zq_custom",
+    "refs/heads/zq_custom"
   ],
   "public_roots": [
     "cfg",
@@ -12,7 +12,8 @@
     "rule",
     "script",
     "shell",
-    "wiki"
+    "wiki",
+    "zq_custom"
   ],
   "deferred_sources": [
     "rule/Custom_Direct.list",
