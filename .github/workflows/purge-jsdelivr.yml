@@ -5,7 +5,7 @@ on:
   # not a duplicated paths filter, decides whether the run is a fast no-op.
   push:
     branches:
-      - main
+      - zq_custom
 
   workflow_dispatch:
     inputs:
@@ -49,7 +49,7 @@ concurrency:
 jobs:
   purge-jsdelivr:
     # Only the owning repository operates this cache.
-    if: github.repository == 'Aethersailor/Custom_OpenClash_Rules'
+    if: github.repository == 'MmDawN/Clash_Rules' && !(github.event_name == 'push' && github.event.forced)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
@@ -108,7 +108,7 @@ jobs:
             fi
           fi
 
-          git fetch --no-tags origin main
+          git fetch --no-tags origin zq_custom
           published="$(git rev-parse FETCH_HEAD)"
 
           {
@@ -152,7 +152,7 @@ jobs:
 
   deploy-worker-snapshot:
     needs: purge-jsdelivr
-    if: needs.purge-jsdelivr.outputs.worker_deployable == 'true'
+    if: github.repository == 'Aethersailor/Custom_OpenClash_Rules' && needs.purge-jsdelivr.outputs.worker_deployable == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: cloudflare-production
