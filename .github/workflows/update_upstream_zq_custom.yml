@@ -1,0 +1,102 @@
+name: Sync Upstream and Update Custom Branch
+
+on:
+  # 每 6 小时同步一次，也支持手动触发。
+  schedule:
+    - cron: '30 0,6,12,18 * * *'
+  workflow_dispatch:
+
+permissions:
+  # 需要更新仓库中的 main 和 zq_custom 分支。
+  contents: write
+
+# 与其他写入 main 的工作流串行运行，避免并发推送互相覆盖。
+concurrency:
+  group: main-writers
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # 只在目标仓库执行，避免在其他仓库运行同步任务。
+    if: github.repository == 'MmDawN/Clash_Rules'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # 使用有推送权限的凭据；完整历史供 rebase 使用。
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+          ref: zq_custom
+          fetch-depth: 0
+
+      - name: Sync upstream and rebase custom branch
+        id: sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+
+          # 获取上游 main，以及本仓库两个分支当前的提交，供同步和推送保护使用。
+          git remote add upstream https://github.com/Aethersailor/Custom_OpenClash_Rules.git
+          git fetch --no-tags upstream main
+          upstream_sha="$(git rev-parse FETCH_HEAD)"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main refs/heads/zq_custom:refs/remotes/origin/zq_custom
+          main_before="$(git rev-parse origin/main)"
+          custom_before="$(git rev-parse origin/zq_custom)"
+
+          # 将自定义分支提交重放到最新上游 main 之后。
+          git checkout -B zq_custom "$custom_before"
+          git rebase "$upstream_sha"
+          custom_after="$(git rev-parse HEAD)"
+
+          # 两个分支一起更新；lease 防止覆盖同步期间发生的其他推送。
+          git push --atomic \
+            --force-with-lease="refs/heads/main:$main_before" \
+            --force-with-lease="refs/heads/zq_custom:$custom_before" \
+            origin "$upstream_sha:refs/heads/main" "$custom_after:refs/heads/zq_custom"
+
+          if [ "$custom_before" != "$custom_after" ]; then
+            # 仅在自定义分支提交发生变化时，通知后续步骤清理缓存。
+            {
+              echo "changed=true"
+              echo "before_sha=$custom_before"
+              echo "after_sha=$custom_after"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python for CDN purge
+        if: steps.sync.outputs.changed == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Purge files changed by rebase
+        if: steps.sync.outputs.changed == 'true'
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ steps.sync.outputs.before_sha }}
+          AFTER_SHA: ${{ steps.sync.outputs.after_sha }}
+        run: |
+          # 强推会跳过常规 purge 工作流，因此在这里清理 rebase 影响的文件。
+          git fetch --no-tags origin zq_custom
+          export PUBLISHED_SHA="$(git rev-parse FETCH_HEAD)"
+          python - <<'PYTHON'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, ".github/scripts")
+          import jsdelivr_purge as purge
+
+          contract = purge.load_contract(Path(".github/jsdelivr-publish.json"))
+          before = purge.resolve_commit(os.environ["BEFORE_SHA"])
+          after = purge.resolve_commit(os.environ["AFTER_SHA"])
+          published = purge.resolve_commit(os.environ["PUBLISHED_SHA"])
+          # 确认 rebase 后的提交已在远端分支中，再按新分支内容清理缓存。
+          subprocess.run(["git", "merge-base", "--is-ancestor", after, published], check=True)
+          expectations = purge.build_expectations(before, after, contract, "complete", published)
+          purge.purge_all(expectations, contract)
+          PYTHON
