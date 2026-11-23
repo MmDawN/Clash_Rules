@@ -28,3 +28,4 @@ dns:
     - '*.msftncsi.com'
     - 'www.msftconnecttest.com'
     - '+.31201908.xyz'
+    - '+.byr.pt'
